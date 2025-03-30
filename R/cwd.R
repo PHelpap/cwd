@@ -56,7 +56,11 @@ cwd <- function(df, varname_wbal, varname_date, thresh_terminate = 0.0,
 
   # search all dates
   while (idx <= (nrow(df)-1)){
-    idx <- idx + 1
+    # Skip if water balance is NA
+    if (is.na(df[[ varname_wbal ]][idx])){
+      idx <- idx + 1
+      next
+    }
 
     # if the water balance (deficit = prec - et) is negative, start accumulating deficit
     # cumulative negative water balances (deficits)
@@ -74,6 +78,7 @@ cwd <- function(df, varname_wbal, varname_date, thresh_terminate = 0.0,
       if(is.na(thresh_terminate_absolute)) {######determines whether an argument is given for thresh_terminate_absolute
 
         while (iidx <= (nrow(df)-1) &&  # avoid going over row length
+               !is.na(df[[varname_wbal]][iidx]) &&  # Check NA within loop
                (deficit >= 0) &&  # Ensure deficit is positive
                ((deficit - df[[ varname_wbal ]][iidx] > thresh_terminate * max_deficit))
         ){
@@ -143,6 +148,7 @@ cwd <- function(df, varname_wbal, varname_date, thresh_terminate = 0.0,
 
         while (iidx <= (nrow(df)-1) &&  # avoid going over row length
                 (deficit >= 0) &&  # Ensure deficit is positive
+                !is.na(df[[varname_wbal]][iidx]) &&  # Check NA within loop
                 ((deficit - df[[ varname_wbal ]][iidx] > max_deficit - thresh_terminate_absolute))
          ){
 
@@ -221,6 +227,8 @@ cwd <- function(df, varname_wbal, varname_date, thresh_terminate = 0.0,
       iinst <- iinst + 1
       dday <- 0
       idx <- iidx
+    } else {
+      idx <- idx + 1  # increment idx if no event started
     }
 
   }
