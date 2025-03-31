@@ -47,7 +47,7 @@ cwd <- function(df, varname_wbal, varname_date, thresh_terminate = 0.0,
   df$doy <- lubridate::yday(df[[ varname_date ]])
 
   inst <- tibble()
-  idx <- 0
+  idx <- 1
   iinst <- 1
 
   df <- df |>
@@ -55,7 +55,7 @@ cwd <- function(df, varname_wbal, varname_date, thresh_terminate = 0.0,
     mutate(iinst = NA, dday = NA, deficit = 0)
 
   # search all dates
-  while (idx <= (nrow(df)-1)){
+  while (idx <= (nrow(df))){
     # Skip if water balance is NA
     if (is.na(df[[ varname_wbal ]][idx])){
       idx <- idx + 1
@@ -146,7 +146,7 @@ cwd <- function(df, varname_wbal, varname_date, thresh_terminate = 0.0,
 
     } else { ###########starts counting instances if thresh_terminate_absolute is given
 
-        while (iidx <= (nrow(df)-1) &&  # avoid going over row length
+        while (iidx <= (nrow(df)) &&  # avoid going over row length
                 (deficit >= 0) &&  # Ensure deficit is positive
                 !is.na(df[[varname_wbal]][iidx]) &&  # Check NA within loop
                 ((deficit - df[[ varname_wbal ]][iidx] > max_deficit - thresh_terminate_absolute))
