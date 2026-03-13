@@ -36,9 +36,9 @@ A potential cumulative water deficit can be calculated using net radiation and t
 
 Read data from the example FLUNXET file contained in this repository.
 ```{r}
-df <- read.csv("~/Bern/Master thesis/FLUXNET/CH-Dav/FLX_CH-Dav_FLUXNET2015_FULLSET_DD_1997-2014_1-4.csv") |> 
+df <- readRDS(file = paste0(here(), "/data/df_us-ton.rds")) |> 
    # convert to from kPA to Pa (SI units are used for inputs to functions in the package)
-   mutate(PA_F = 1e3 * PA_F) |> 
+   mutate(PA_F = 1e3 * PA_F) |>
    # Convert TIMESTAMP to Date format
    mutate(TIMESTAMP = ymd(TIMESTAMP))
 
@@ -47,7 +47,7 @@ df <- read.csv("~/Bern/Master thesis/FLUXNET/CH-Dav/FLX_CH-Dav_FLUXNET2015_FULLS
 #    # convert to from kPA to Pa (SI units are used for inputs to functions in the package)
 #    mutate(PA_F = 1e3 * PA_F)
 
-#visdat::vis_miss(df)
+visdat::vis_miss(df)
 ```
 
 Some net radiation data is missing. Impute missing values by KNN.
@@ -126,24 +126,61 @@ df <- df |>
 
 Plot mean seasonal cycle.
 ```{r}
-# df |> 
+# df |>
 #   mutate(TIMESTAMP = lubridate::as_date(as_datetime(TIMESTAMP_END)))
 
 df |> 
   mutate(doy = lubridate::yday(TIMESTAMP)) |> 
   group_by(doy) |> 
   summarise(
-    et = mean(et),
-    pet = mean(pet)
+    #et = mean(et),
+    pet = mean(pet),
+    P_F = mean(P_F)
   ) |> 
   ggplot() +
-  geom_line(aes(doy, et, color = "ET")) +
+  #geom_line(aes(doy, et, color = "ET")) +
+  geom_line(aes(doy, P_F, color = "P"))+
   geom_line(aes(doy, pet, color = "PET")) + 
+  scale_color_manual(values = c("P" = "#6B74DB", "PET" = "#F59430")) +
+
   labs(
     x = "Day of year",
-    y = expression(paste("Water vapour mass flux (mm d"^-1, ")"))
+    y = expression(paste("Flux (mm d"^-1, ")")), 
+    color = "Flux"
   ) +
-  theme_classic()
+  theme_classic()+
+    theme(axis.text.x = element_text(size = 14),
+    legend.position = "none",
+    axis.text.y = element_text(size = 14), 
+    axis.title.x = element_text(size = 14),
+    axis.title.y = element_text(size = 14),
+    legend.title = element_text(face = "bold"),
+    legend.text = element_text(size=12)) 
+
+### select specific year to plot seasonal cycle for: 
+flux_2013 <- df |> 
+  filter(year(TIMESTAMP) == 2013) |> 
+  mutate(doy = yday(TIMESTAMP)) |> 
+  ggplot() +
+  # geom_line(aes(doy, et, color = "ET")) +
+  geom_line(aes(doy, P_F, color = "P")) +
+  geom_line(aes(doy, pet, color = "PET")) +
+  scale_color_manual(values = c("P" = "#6B74DB", "PET" = "#F59430")) +
+  labs(
+    x = "Day of year",
+    y = expression(paste("Flux (mm d"^-1, ")")),
+    color = "Flux"
+  ) +
+  theme_classic() +
+  theme(
+    axis.text.x = element_text(size = 14),
+    axis.text.y = element_text(size = 14),
+    axis.title.x = element_text(size = 14),
+    axis.title.y = element_text(size = 14),
+    legend.position = c(0.1,0.85),
+    legend.title = element_text(face = "bold"),
+    legend.text = element_text(size = 12)
+  )
 ```
 
 ## Cumulating PET - *P*
@@ -151,13 +188,13 @@ df |>
 Check annual totals.
 ```{r}
 adf <- df |>
-  mutate(year = year(TIMESTAMP)) |>
-  group_by(year) |>
+  mutate(day = day(TIMESTAMP)) |>
+  group_by(day) |>
   summarise(pet = sum(pet), prec = sum(P_F))
 
 adf |>
   tidyr::pivot_longer(cols = c(pet, prec), names_to = "Flux") |> 
-  ggplot(aes(x = year, y = value, color = Flux)) +
+  ggplot(aes(x = day, y = value, color = Flux)) +
   geom_line() +
   labs(y = "Flux (mm/yr)") +
   theme_classic()
@@ -226,7 +263,7 @@ out_cwd <- cwd(
   df,
   varname_wbal = "pwbal",
   varname_date = "TIMESTAMP", 
-  thresh_terminate = 0,
+  thresh_terminate_absolute = 0,
   thresh_drop = 0.0,
   doy_reset = doy_reset
   )
@@ -277,20 +314,168 @@ out_cwd$inst <- out_cwd$inst |>
 
 Plot the potential cumulative water deficit time series and events.
 ```{r}
-ggplot() +
+pcwd_2013 <- ggplot() +
   geom_rect(
     data = out_cwd$inst,
     aes(xmin = date_start, xmax = date_end, ymin = 0, ymax = max( out_cwd$df$deficit)), 
-    fill = rgb(0,0,0,0.3),
+    fill = "grey80",
     color = NA) +
-  geom_line(data  =  out_cwd$df, aes(TIMESTAMP, deficit), color = "tomato") +
-  theme_classic() +
+  geom_line(data  =  out_cwd$df, aes(TIMESTAMP, deficit), color = "#DB5A39") +
+  scale_x_date(limits = as.Date(c("2013-01-01", "2014-01-01"))) +
   ylim(0, max(out_cwd$df$deficit)) + 
   labs(
     x = "Date", 
     y = "Potential cumulative water deficit (mm)"
+    )+
+   theme_classic()+
+    theme(axis.text.x = element_text(size = 14),
+    legend.position = "right",
+    axis.text.y = element_text(size = 14), 
+    axis.title.x = element_text(size = 14),
+    axis.title.y = element_text(size = 14),
+    legend.title = element_text(face = "bold"),
+    legend.text = element_text(size=12)) 
+```
+
+```{r}
+library(cowplot)
+## merge flux plot and pcwd plot
+flux_2013 <- flux_2013 + theme(plot.margin = margin(t = 5, r = 0, b = 0, l = 5))
+pcwd_2013 <- pcwd_2013 + theme(plot.margin = margin(t = 5, r = 20, b = 0, l = 5))
+
+combined_fluxes <- plot_grid(
+  flux_2013 ,pcwd_2013,
+  nrow        = 1,
+  ncol        = 2,
+  align       = "v",
+  axis        = "l",
+  labels      = c(
+    "a)", 
+    "b)"
+  ),
+  # Push labels all the way to the left margin of each panel
+  label_x = 0.01,   # 0 = extreme left edge, a little bit of padding
+  hjust   = 0,      # left‑justify the label text
+  # Tweak vertical positioning if you like
+  label_y = 0.98,   # just below the top
+  vjust   = 1,       # align text at its top
+  rel_widths = c(1, 1),
+  expand      = TRUE  
+)
+
+combined_fluxes
+
+ggsave(
+  filename = here::here("figures/US_ton_fluxes.pdf"),
+  plot     = combined_fluxes,
+  device   = cairo_pdf,    # better text rendering
+  width    = 12,           # in inches
+  height   = 5,            # in inches
+  units    = "in",
+  dpi      = 300,          # for raster elements (if any)
+  bg       = "white"       # white background
+)
+```
+
+
+```{r}
+##calculate the maximum length of events each year
+get_maxlen <- function(df){
+    df$inst |>
+    mutate(year = lubridate::year(date_start)) |>
+    group_by(year) |>
+    summarise(max_len = max(len, na.rm = TRUE)) |>  # Select only the relevant columns
+    mutate(max_len = max_len)
+   # return(out_cwd)
+  
+}
+
+##calculate the maximum length of events each year
+get_maxcwd <- function(df){
+    df$inst |>
+    mutate(year = lubridate::year(date_start)) |>
+    group_by(year) |>
+    summarise(max_cwd = max(deficit, na.rm = TRUE)) |>  # Select only the relevant columns
+    mutate(max_cwd = max_cwd)
+   # return(out_cwd)
+  
+}
+
+```
+
+```{r}
+#maximum length of droughts each year
+out_maxlen <- get_maxlen(out_cwd)
+
+ggplot(data = out_maxlen)+
+  geom_line(aes(x= year, y=max_len))+
+  theme_classic()+
+    labs(
+    x = "Year", 
+    y = "Annual maximum drought length (days)"
+    )
+
+#maximum PCWD (mm) per year
+out_maxcwd <- get_maxcwd(out_cwd)
+
+ggplot(data = out_maxcwd)+
+  geom_line(aes(x= year, y=max_cwd))+
+  theme_classic()+
+    labs(
+    x = "Year", 
+    y = "Annual maximum PCWD (mm)"
+    )
+
+```
+
+```{r}
+##select the len variable where cwd is max: 
+
+get_len_at_max_deficit <- function(df){
+  df$inst %>%
+    # add a year column based on the event start
+    mutate(year = year(date_start)) %>%
+    # for each year, pick the one row with the largest deficit
+    group_by(year) %>%
+    # drop years where everything is NA
+    filter(!all(is.na(deficit))) %>%
+    # slice the single row with the max deficit (break ties arbitrarily)
+    slice_max(deficit, n = 1, with_ties = FALSE) %>%
+    # now summarize to get exactly the two columns you want
+    summarise(
+      max_deficit = deficit,
+      len_at_max_deficit = len,
+      .groups = "drop"
+    )
+}
+```
+
+```{r}
+#maximum PCWD (mm) per year
+yearly_stats <- get_len_at_max_deficit(out_cwd)
+
+ggplot(data = yearly_stats)+
+  geom_line(aes(x= year, y=max_deficit))+
+  theme_classic()+
+    labs(
+    x = "Year", 
+    y = "Annual maximum PCWD (mm)"
+    )
+
+ggplot(data = yearly_stats)+
+  geom_line(aes(x= year, y=len_at_max_deficit, color = "len at max PCWD"))+
+  geom_line(data = out_maxlen, aes(x= year, y=max_len, color = "max len"))+
+  theme_classic()+
+    labs(
+    x = "Year", 
+    y = "Length of annual maximum drought (days)"
     )
 ```
+
+
+
+
+
 
 ## References
 
